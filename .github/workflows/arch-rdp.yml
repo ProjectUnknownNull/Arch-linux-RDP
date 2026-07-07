@@ -5,15 +5,14 @@ jobs:
   rdp:
     runs-on: ubuntu-latest
     steps:
-      - name: Start Arch container with xrdp
+      - name: Diagnose and start Arch container with xrdp
         run: |
           docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
-          docker exec archrdp bash -c 'cat /etc/pacman.d/mirrorlist'
-          docker exec archrdp bash -c 'echo "Server = https://mirror.rackspace.com/archlinux/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist'
-          docker exec archrdp bash -c 'cat /etc/pacman.d/mirrorlist'
-          docker exec archrdp bash -c 'rm -rf /var/lib/pacman/sync/*'
-          docker exec archrdp pacman -Syyu --noconfirm
-          docker exec archrdp bash -c 'ls -la /var/lib/pacman/sync/'
+          docker exec archrdp cat /etc/pacman.conf
+          docker exec archrdp pacman -Sy --noconfirm
+          docker exec archrdp pacman -Ss xrdp
+          docker exec archrdp pacman -Sl extra | grep -i xrdp
+          docker exec archrdp pacman -S --noconfirm archlinux-keyring
           docker exec archrdp pacman -S --noconfirm xrdp xorgxrdp xfce4 xfce4-goodies
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
