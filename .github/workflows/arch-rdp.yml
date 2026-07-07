@@ -8,8 +8,12 @@ jobs:
       - name: Start Arch container with xrdp
         run: |
           docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
-          docker exec archrdp bash -c 'echo "Server = https://geo.mirror.pkgbuild.com/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist'
+          docker exec archrdp bash -c 'cat /etc/pacman.d/mirrorlist'
+          docker exec archrdp bash -c 'echo "Server = https://mirror.rackspace.com/archlinux/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist'
+          docker exec archrdp bash -c 'cat /etc/pacman.d/mirrorlist'
+          docker exec archrdp bash -c 'rm -rf /var/lib/pacman/sync/*'
           docker exec archrdp pacman -Syyu --noconfirm
+          docker exec archrdp bash -c 'ls -la /var/lib/pacman/sync/'
           docker exec archrdp pacman -S --noconfirm xrdp xorgxrdp xfce4 xfce4-goodies
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
