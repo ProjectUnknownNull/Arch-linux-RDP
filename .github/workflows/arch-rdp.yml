@@ -20,15 +20,11 @@ jobs:
           docker exec -d archrdp /usr/sbin/xrdp-sesman
           docker exec -d archrdp /usr/sbin/xrdp
 
-      - name: Install and start ngrok tunnel
+      - name: Install and start Tailscale
         run: |
-          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install -y ngrok
-          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
-          nohup ngrok tcp 3389 --log stdout > ngrok.log &
-          sleep 5
-          curl -s http://127.0.0.1:4040/api/tunnels
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=arch-rdp-runner
+          tailscale ip -4
 
       - name: Keep session alive
         run: sleep 21000
