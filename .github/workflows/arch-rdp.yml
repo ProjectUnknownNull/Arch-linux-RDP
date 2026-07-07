@@ -5,15 +5,15 @@ jobs:
   rdp:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnose and start Arch container with xrdp
+      - name: Start Arch container with xrdp
         run: |
           docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
-          docker exec archrdp cat /etc/pacman.conf
-          docker exec archrdp pacman -Sy --noconfirm
-          docker exec archrdp pacman -Ss xrdp
-          docker exec archrdp pacman -Sl extra | grep -i xrdp
-          docker exec archrdp pacman -S --noconfirm archlinux-keyring
-          docker exec archrdp pacman -S --noconfirm xrdp xorgxrdp xfce4 xfce4-goodies
+          docker exec archrdp pacman -Syu --noconfirm
+          docker exec archrdp pacman -S --noconfirm base-devel git sudo xfce4 xfce4-goodies
+          docker exec archrdp useradd -m -s /bin/bash builduser
+          docker exec archrdp bash -c "echo 'builduser ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"
+          docker exec --user builduser archrdp bash -c "cd /home/builduser && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
+          docker exec --user builduser archrdp bash -c "yay -S --noconfirm xrdp xorgxrdp"
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
           docker exec archrdp bash -c "echo xfce4-session > /home/rdpuser/.xsession"
