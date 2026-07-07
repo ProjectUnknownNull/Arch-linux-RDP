@@ -1,0 +1,30 @@
+name: arch-rdp
+on: workflow_dispatch
+
+jobs:
+  rdp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start Arch container with xrdp
+        run: |
+          docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
+          docker exec archrdp pacman -Syu --noconfirm
+          docker exec archrdp pacman -S --noconfirm xrdp xorgxrdp xfce4 xfce4-goodies
+          docker exec archrdp useradd -m -s /bin/bash rdpuser
+          docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
+          docker exec archrdp bash -c "echo xfce4-session > /home/rdpuser/.xsession"
+          docker exec -d archrdp /usr/sbin/xrdp-sesman
+          docker exec -d archrdp /usr/sbin/xrdp
+
+      - name: Install and start ngrok tunnel
+        run: |
+          curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install -y ngrok
+          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
+          nohup ngrok tcp 3389 --log stdout > ngrok.log &
+          sleep 5
+          curl -s http://127.0.0.1:4040/api/tunnels
+
+      - name: Keep session alive
+        run: sleep 21000
