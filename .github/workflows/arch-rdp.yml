@@ -20,6 +20,14 @@ jobs:
           docker exec archrdp bash -c "echo 'exec /usr/bin/xfce4-session' >> /home/rdpuser/.xsession"
           docker exec archrdp bash -c "chmod +x /home/rdpuser/.xsession"
           docker exec archrdp bash -c "chown rdpuser:rdpuser /home/rdpuser/.xsession"
+          echo "=== .xsession content ==="
+          docker exec archrdp cat /home/rdpuser/.xsession
+          echo "=== .xsession permissions ==="
+          docker exec archrdp ls -la /home/rdpuser/.xsession
+          echo "=== xfce4-session location ==="
+          docker exec archrdp bash -c "su - rdpuser -c 'which xfce4-session'"
+          echo "=== startwm.sh content ==="
+          docker exec archrdp cat /etc/xrdp/startwm.sh
           docker exec -d archrdp /usr/sbin/xrdp-sesman
           docker exec -d archrdp /usr/sbin/xrdp
 
