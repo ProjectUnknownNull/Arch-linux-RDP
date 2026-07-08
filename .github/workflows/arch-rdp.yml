@@ -20,6 +20,16 @@ jobs:
           docker exec -d archrdp /usr/sbin/xrdp-sesman
           docker exec -d archrdp /usr/sbin/xrdp
 
+      - name: Diagnose xrdp status
+        run: |
+          sleep 5
+          echo "=== process list ==="
+          docker exec archrdp ps aux
+          echo "=== xrdp.log ==="
+          docker exec archrdp bash -c "cat /var/log/xrdp.log 2>&1 || echo 'no xrdp.log'"
+          echo "=== xrdp-sesman.log ==="
+          docker exec archrdp bash -c "cat /var/log/xrdp-sesman.log 2>&1 || echo 'no xrdp-sesman.log'"
+
       - name: Install and start Tailscale
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
