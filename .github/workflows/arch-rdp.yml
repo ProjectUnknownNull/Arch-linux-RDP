@@ -1,9 +1,12 @@
 name: arch-rdp
-on: workflow_dispatch
+
+on:
+  workflow_dispatch:
 
 jobs:
   rdp:
     runs-on: ubuntu-latest
+
     steps:
       - name: Allow unprivileged user namespaces on runner
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
@@ -11,34 +14,93 @@ jobs:
       - name: Start Arch container with xrdp
         run: |
           docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
+
           docker exec archrdp pacman -Syu --noconfirm
-          docker exec archrdp pacman -S --noconfirm base-devel git sudo xfce4 xfce4-goodies dbus
+
+          docker exec archrdp pacman -S --noconfirm \
+            base-devel \
+            git \
+            sudo \
+            dbus \
+            dbus-x11 \
+            xorg-server \
+            xorg-xinit \
+            xfce4 \
+            xfce4-goodies
+
           docker exec archrdp bash -c "dbus-uuidgen > /etc/machine-id"
           docker exec -d archrdp dbus-daemon --system --fork
+
           docker exec archrdp useradd -m -s /bin/bash builduser
           docker exec archrdp bash -c "echo 'builduser ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"
-          docker exec --user builduser archrdp bash -c "cd /home/builduser && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
-          docker exec --user builduser archrdp bash -c "yay -S --noconfirm xrdp xorgxrdp"
+
+          docker exec --user builduser archrdp bash -c "
+            cd /home/builduser &&
+            git clone https://aur.archlinux.org/yay.git &&
+            cd yay &&
+            makepkg -si --noconfirm
+          "
+
+          docker exec --user builduser archrdp bash -c "
+            yay -S --noconfirm xrdp xorgxrdp
+          "
+
           docker exec archrdp useradd -m -s /bin/bash rdpuser
-          docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
-          docker exec archrdp bash -c "echo '#!/bin/bash' > /home/rdpuser/.xinitrc"
-          docker exec archrdp bash -c "echo 'exec dbus-launch --exit-with-session /usr/bin/xfce4-session > /home/rdpuser/wm-error.log 2>&1' >> /home/rdpuser/.xinitrc"
-          docker exec archrdp bash -c "chmod +x /home/rdpuser/.xinitrc"
-          docker exec archrdp bash -c "chown rdpuser:rdpuser /home/rdpuser/.xinitrc"
+
+          docker exec archrdp bash -c \
+            "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
+
+          docker exec archrdp mkdir -p /run/user/1001
+          docker exec archrdp chown rdpuser:rdpuser /run/user/1001
+          docker exec archrdp chmod 700 /run/user/1001
+
+          docker exec archrdp bash -c "cat > /home/rdpuser/.xsession <<'EOF'
+#!/bin/bash
+
+export XDG_RUNTIME_DIR=/run/user/1001
+
+exec dbus-launch --exit-with-session startxfce4
+EOF"
+
+          docker exec archrdp chmod +x /home/rdpuser/.xsession
+          docker exec archrdp chown rdpuser:rdpuser /home/rdpuser/.xsession
+
+          docker exec archrdp bash -c "
+            sed -i \
+            's|test -x /etc/X11/Xsession && exec /etc/X11/Xsession|exec /home/rdpuser/.xsession|' \
+            /etc/xrdp/startwm.sh || true
+          "
+
           docker exec -d archrdp /usr/sbin/xrdp-sesman
           docker exec -d archrdp /usr/sbin/xrdp
 
       - name: Install and start Tailscale
         run: |
           curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=arch-rdp-runner
+          sudo tailscale up \
+            --authkey=${{ secrets.TAILSCALE_AUTHKEY }} \
+            --hostname=arch-rdp-runner
+
+          echo "===== Tailscale IP ====="
           tailscale ip -4
 
-      - name: Stream xrdp logs and stay alive
+      - name: Debug logs
+        if: always()
         run: |
-          docker exec archrdp bash -c "touch /var/log/xrdp.log /var/log/xrdp-sesman.log"
-          docker exec archrdp tail -f /var/log/xrdp.log /var/log/xrdp-sesman.log &
-          sleep 300
-          echo "=== wm-error.log ==="
-          docker exec archrdp bash -c "cat /home/rdpuser/wm-error.log 2>&1 || echo 'no wm-error.log found'"
+          echo "===== XRDP LOG ====="
+          docker exec archrdp cat /var/log/xrdp.log || true
+
+          echo "===== SESMAN LOG ====="
+          docker exec archrdp cat /var/log/xrdp-sesman.log || true
+
+          echo "===== XSESSION ====="
+          docker exec archrdp cat /home/rdpuser/.xsession || true
+
+          echo "===== USER LOGS ====="
+          docker exec archrdp bash -c "find /home/rdpuser -name '*.log' -exec sh -c 'echo ==== {}; cat {}' \;" || true
+
+          echo "===== XORG LOGS ====="
+          docker exec archrdp bash -c "find /home/rdpuser -name '*.xorgxrdp*' -exec sh -c 'echo ==== {}; cat {}' \;" || true
+
+          echo "===== KEEPING RUNNER ALIVE ====="
           sleep 20700
