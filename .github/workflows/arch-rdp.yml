@@ -16,7 +16,10 @@ jobs:
           docker exec --user builduser archrdp bash -c "yay -S --noconfirm xrdp xorgxrdp"
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
-          docker exec archrdp bash -c "echo xfce4-session > /home/rdpuser/.xsession"
+          docker exec archrdp bash -c "echo '#!/bin/bash' > /home/rdpuser/.xsession"
+          docker exec archrdp bash -c "echo 'exec /usr/bin/xfce4-session' >> /home/rdpuser/.xsession"
+          docker exec archrdp bash -c "chmod +x /home/rdpuser/.xsession"
+          docker exec archrdp bash -c "chown rdpuser:rdpuser /home/rdpuser/.xsession"
           docker exec -d archrdp /usr/sbin/xrdp-sesman
           docker exec -d archrdp /usr/sbin/xrdp
 
