@@ -19,7 +19,7 @@ jobs:
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
           docker exec archrdp bash -c "echo '#!/bin/bash' > /home/rdpuser/.xinitrc"
-          docker exec archrdp bash -c "echo 'exec dbus-launch --exit-with-session /usr/bin/xfce4-session' >> /home/rdpuser/.xinitrc"
+          docker exec archrdp bash -c "echo 'exec dbus-launch --exit-with-session /usr/bin/xfce4-session > /home/rdpuser/wm-error.log 2>&1' >> /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "chmod +x /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "chown rdpuser:rdpuser /home/rdpuser/.xinitrc"
           docker exec -d archrdp /usr/sbin/xrdp-sesman
@@ -35,4 +35,7 @@ jobs:
         run: |
           docker exec archrdp bash -c "touch /var/log/xrdp.log /var/log/xrdp-sesman.log"
           docker exec archrdp tail -f /var/log/xrdp.log /var/log/xrdp-sesman.log &
-          sleep 21000
+          sleep 300
+          echo "=== wm-error.log ==="
+          docker exec archrdp bash -c "cat /home/rdpuser/wm-error.log 2>&1 || echo 'no wm-error.log found'"
+          sleep 20700
