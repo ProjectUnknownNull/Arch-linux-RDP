@@ -5,6 +5,9 @@ jobs:
   rdp:
     runs-on: ubuntu-latest
     steps:
+      - name: Allow unprivileged user namespaces on runner
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
       - name: Start Arch container with xrdp
         run: |
           docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
@@ -19,7 +22,6 @@ jobs:
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
           docker exec archrdp bash -c "echo '#!/bin/bash' > /home/rdpuser/.xinitrc"
-          docker exec archrdp bash -c "echo 'export GLYCIN_DISABLE_SANDBOX=1' >> /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "echo 'exec dbus-launch --exit-with-session /usr/bin/xfce4-session > /home/rdpuser/wm-error.log 2>&1' >> /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "chmod +x /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "chown rdpuser:rdpuser /home/rdpuser/.xinitrc"
