@@ -9,7 +9,9 @@ jobs:
         run: |
           docker run -d --name archrdp --privileged -p 3389:3389 archlinux:latest sleep infinity
           docker exec archrdp pacman -Syu --noconfirm
-          docker exec archrdp pacman -S --noconfirm base-devel git sudo xfce4 xfce4-goodies
+          docker exec archrdp pacman -S --noconfirm base-devel git sudo xfce4 xfce4-goodies dbus
+          docker exec archrdp bash -c "dbus-uuidgen > /etc/machine-id"
+          docker exec -d archrdp dbus-daemon --system --fork
           docker exec archrdp useradd -m -s /bin/bash builduser
           docker exec archrdp bash -c "echo 'builduser ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"
           docker exec --user builduser archrdp bash -c "cd /home/builduser && git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si --noconfirm"
@@ -17,7 +19,7 @@ jobs:
           docker exec archrdp useradd -m -s /bin/bash rdpuser
           docker exec archrdp bash -c "echo 'rdpuser:${{ secrets.RDP_PASSWORD }}' | chpasswd"
           docker exec archrdp bash -c "echo '#!/bin/bash' > /home/rdpuser/.xinitrc"
-          docker exec archrdp bash -c "echo 'exec /usr/bin/xfce4-session' >> /home/rdpuser/.xinitrc"
+          docker exec archrdp bash -c "echo 'exec dbus-launch --exit-with-session /usr/bin/xfce4-session' >> /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "chmod +x /home/rdpuser/.xinitrc"
           docker exec archrdp bash -c "chown rdpuser:rdpuser /home/rdpuser/.xinitrc"
           docker exec -d archrdp /usr/sbin/xrdp-sesman
